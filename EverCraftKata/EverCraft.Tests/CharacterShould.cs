@@ -1,4 +1,5 @@
 using EverCraft.Core;
+using EverCraft.Tests.Extensions;
 using FluentAssertions;
 using Xunit;
 
@@ -20,6 +21,9 @@ namespace EverCraft.Tests
             _character.Alignment.Should().Be(Alignments.Neutral);
             _character.ArmorClass.Should().Be(10);
             _character.HitPoints.Should().Be(5);
+
+            _character.ExperiencePoints.Should().Be(0);
+            _character.Level.Should().Be(1);
 
             _character.Strength.Value.Should().Be(10);
             _character.Dexterity.Value.Should().Be(10);
@@ -56,12 +60,12 @@ namespace EverCraft.Tests
         }
 
         [Theory]
-        [InlineData(8, false, 5)]
-        [InlineData(9, false, 5)]
-        [InlineData(10, true, 4)]
-        [InlineData(11, true, 4)]
-        [InlineData(20, true, 3)]
-        public void DamageTargetOnAttackHit(int roll, bool isHit, int expectedHitPoints)
+        [InlineData(8, false, 0)]
+        [InlineData(9, false, 0)]
+        [InlineData(10, true, 1)]
+        [InlineData(11, true, 1)]
+        [InlineData(20, true, 2)]
+        public void DamageTargetOnAttackHit(int roll, bool isHit, int expectedDamage)
         {
             var target = new Character();
             target.HitPoints.Should().Be(5);
@@ -69,7 +73,7 @@ namespace EverCraft.Tests
             bool result = _character.Attack(target, roll);
 
             result.Should().Be(isHit);
-            target.HitPoints.Should().Be(expectedHitPoints);
+            target.Damage.Should().Be(expectedDamage);
         }
 
         [Fact]
@@ -85,7 +89,7 @@ namespace EverCraft.Tests
             target.IsDead.Should().BeFalse();
             _character.Attack(target, 19);
 
-            target.HitPoints.Should().Be(0);
+            target.Damage.Should().Be(target.HitPoints);
             target.IsDead.Should().BeTrue();
         }
 
@@ -119,6 +123,66 @@ namespace EverCraft.Tests
             var character = new Character(constitution: constitution);
 
             character.HitPoints.Should().Be(expected);
+        }
+
+        [Theory]
+        [InlineData(0, 1)]
+        [InlineData(999, 1)]
+        [InlineData(1000, 2)]
+        [InlineData(1999, 2)]
+        [InlineData(2000, 3)]
+        [InlineData(4500, 5)]
+        public void HaveLevelBasedOnExperiencePoints(int exp, int expectedLevel)
+        {
+            _character.ExperiencePoints = exp;
+
+            _character.Level.Should().Be(expectedLevel);
+        }
+
+        [Theory]
+        [InlineData(1, 10, 5)]
+        [InlineData(2, 10, 10)]
+        [InlineData(2, 14, 14)]
+        [InlineData(3, 14, 21)]
+        public void HaveHitPointsBasedOnLevel(int level, int constitution, int expected)
+        {
+            _character.SetLevel(level);
+
+            _character.Constitution = constitution;
+
+            _character.HitPoints.Should().Be(expected);
+        }
+
+        [Theory]
+        [InlineData(1, 0)]
+        [InlineData(2, 1)]
+        [InlineData(3, 1)]
+        [InlineData(4, 2)]
+        [InlineData(6, 3)]
+        [InlineData(7, 3)]
+        public void IncreaseAttackModifierEveryTwoLevels(int level, int expectedModifier)
+        {
+            _character.SetLevel(level);
+
+            _character.AttackRollModifier.Should().Be(expectedModifier);
+        }
+
+        [Theory]
+        [InlineData(1, 1, -5)]
+        [InlineData(1, 2, -4)]
+        [InlineData(1, 20, 5)]
+        [InlineData(1, 12, 1)]
+        [InlineData(4, 1, -3)]
+        [InlineData(4, 2, -2)]
+        [InlineData(4, 20, 7)]
+        [InlineData(4, 12, 3)]
+        public void IncreaseAttackModifierByLevelAndStrengthModifier(int level, int strength, int expected)
+        {
+            _character.SetLevel(level);
+
+            _character.Strength = strength;
+
+            _character.AttackRollModifier.Should().Be(expected);
         }
     }
 }
